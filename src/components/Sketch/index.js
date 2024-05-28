@@ -10,6 +10,18 @@ import dynamic from "next/dynamic";
 import { useState, useEffect, useRef } from "react";
 import cn from "classnames";
 import gsap from "gsap";
+import { UI } from "../UI";
+import {
+  bounds,
+  eye,
+  obj,
+  mirrors,
+  ray,
+  rays,
+  gameState,
+  SETTINGS,
+} from "./globals";
+
 const importFunction = () => import("react-p5").then((mod) => mod.default);
 
 let P5Sketch = null;
@@ -17,133 +29,13 @@ if (typeof window !== "undefined") {
   P5Sketch = dynamic(importFunction, { ssr: false });
 }
 
-const bounds = {
-  min: {
-    x: null,
-    y: null,
-  },
-  max: {
-    x: null,
-    y: null,
-  },
-};
-
-const obj = {
-  x: null,
-  y: null,
-  w: 25,
-  h: 25,
-};
-
-const eye = {
-  x: null,
-  y: null,
-  w: 25,
-  h: 25,
-};
-
-const mirrors = [
-  {
-    x: null,
-    y: null,
-    w: 8,
-    h: 159,
-    type: MIRROR_TYPE.VERTICAL,
-    //
-  },
-  {
-    x: null,
-    y: null,
-    w: 8,
-    h: 150,
-    type: MIRROR_TYPE.VERTICAL,
-  },
-  // {
-  //   x: null,
-  //   y: null,
-  //   w: 100,
-  //   h: 5,
-  //   type: MIRROR_TYPE.HORIZONTAL,
-  // },
-];
-
-let currentRayTarget;
-
-const ray = {
-  direction: null,
-  currentIdx: 0,
-  lines: [
-    {
-      start: null,
-      end: null,
-    },
-    {
-      start: null,
-      end: null,
-    },
-    {
-      start: null,
-      end: null,
-    },
-  ],
-  lastMirrorIdx: -1,
-};
-
-const rays = [
-  {
-    progress: 0,
-    color: "blue",
-
-    // TODO: these values are hardcoded, compare these to the value of ray to see if the user traced the same path
-    lastMirrorIdx: 0,
-    currentIdx: 1,
-  },
-  {
-    progress: 0,
-    color: "orange",
-
-    lastMirrorIdx: 1,
-    currentIdx: 1,
-  },
-  {
-    progress: 0,
-    color: "red",
-
-    lastMirrorIdx: 1,
-    currentIdx: 2,
-  },
-  {
-    progress: 0,
-    color: "purple",
-
-    lastMirrorIdx: 0,
-    currentIdx: 2,
-  },
-];
-
-const SETTINGS = {
-  FIRING_SPEED: 2,
-  MAX_RAY_LENGTH: 400,
-  RAY_HIT_BOUNDARY: 1,
-  LINE_WEIGHT: 3,
-  LINE_DASH: [5, 5],
-  OBJECT_COLOR: null,
-  BOUNDS_PADDING: 25,
-};
-
-const MODE = {
+export const MODE = {
   SANDBOX: 0,
   GUESS: 1,
 };
 
-const STATE = {
-  showVirtualRooms: false,
-};
-
 let draggingTarget;
 let offsetX, offsetY;
-let isAiming = true;
-let isFiring = false;
 
 function checkHit(src, dst, boundX, boundY) {
   return Math.abs(src.x - dst.x) < boundX && Math.abs(src.y - dst.y) < boundY;
@@ -168,7 +60,7 @@ function drawVirtualRoom(p5, point, ray, mirrors, config) {
 
   p5.push();
 
-  p5.drawingContext.globalAlpha = 0.25;
+  p5.drawingContext.globalAlpha = config.virtualRoomOpacity;
   p5.fill(SETTINGS.OBJECT_COLOR);
 
   p5.push();
@@ -178,7 +70,8 @@ function drawVirtualRoom(p5, point, ray, mirrors, config) {
   const newX = point.x + ray.x,
     newY = point.y + ray.y;
 
-  p5.drawingContext.globalAlpha = config.progress * 0.5;
+  p5.drawingContext.globalAlpha =
+    config.progress * 0.5 * config.virtualRoomOpacity;
   p5.line(point.x, point.y, newX, newY);
 
   p5.pop();
@@ -244,16 +137,15 @@ function drawSingleReflection(p5, obj, eye, m, config) {
   p5.pop();
 
   // draw virtual room
-  if (STATE.showVirtualRooms) {
-    const d = p5.dist(p1.x, p1.y, obj.x, obj.y);
 
-    const v = p5
-      .createVector(p1.x - eye.x, p1.y - eye.y)
-      .normalize()
-      .mult(d);
+  const d = p5.dist(p1.x, p1.y, obj.x, obj.y);
 
-    drawVirtualRoom(p5, p1, v, [m], config);
-  }
+  const v = p5
+    .createVector(p1.x - eye.x, p1.y - eye.y)
+    .normalize()
+    .mult(d);
+
+  drawVirtualRoom(p5, p1, v, [m], config);
 }
 
 function drawDirectionalArrow(p5, x, y, dx, dy) {
@@ -300,21 +192,20 @@ function drawDoubleReflection(p5, obj, eye, m1, m2, config) {
   p5.pop();
 
   // draw virtual room
-  if (STATE.showVirtualRooms) {
-    const d =
-      p5.dist(p1.x, p1.y, p2.x, p2.y) + p5.dist(obj.x, obj.y, p2.x, p2.y);
-    const v = p5
-      .createVector(p1.x - eye.x, p1.y - eye.y)
-      .normalize()
-      .mult(d);
-    drawVirtualRoom(p5, p1, v, [m1, m2], config);
-  }
+
+  const d = p5.dist(p1.x, p1.y, p2.x, p2.y) + p5.dist(obj.x, obj.y, p2.x, p2.y);
+  const v = p5
+    .createVector(p1.x - eye.x, p1.y - eye.y)
+    .normalize()
+    .mult(d);
+  drawVirtualRoom(p5, p1, v, [m1, m2], config);
 }
 
 export const Sketch = (props) => {
   const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState({
     currentMode: MODE.SANDBOX,
+    showAllVirtualRooms: false,
     numMirrors: 1,
     highlightedRays: new Array(rays.length).fill(false),
   });
@@ -324,8 +215,6 @@ export const Sketch = (props) => {
   }, []);
 
   const setup = (p5, canvasParentRef) => {
-    SETTINGS.OBJECT_COLOR = p5.color("black");
-
     ray.direction = p5.createVector(0, 0);
 
     ray.lines.forEach((l) => {
@@ -410,7 +299,7 @@ export const Sketch = (props) => {
     }
 
     if (settings.currentMode === MODE.GUESS) {
-      if (isAiming) {
+      if (gameState.isAiming) {
         ray.direction.set(p5.mouseX - obj.x, p5.mouseY - obj.y).normalize();
 
         const line = ray.lines[ray.currentIdx];
@@ -446,16 +335,22 @@ export const Sketch = (props) => {
       );
       p5.pop();
 
-      if (isFiring) {
+      const currentRayTarget = gameState.currentTargetIdx
+        ? rays[gameState.currentTargetIdx]
+        : null;
+      if (gameState.isFiring) {
         if (length >= SETTINGS.MAX_RAY_LENGTH) {
           // stop
         } else if (
           currentRayTarget &&
           currentRayTarget.currentIdx === ray.currentIdx &&
           currentRayTarget.lastMirrorIdx === ray.lastMirrorIdx &&
-          checkHit(eye, lastLine.end, 25, 25)
+          checkHit(eye, lastLine.end, 10, 10)
         ) {
-          alert("nice");
+          alert("Correct!");
+          gameState.isAiming = false;
+          gameState.isFiring = false;
+          return;
           // success
         } else {
           lastLine.end.set(
@@ -515,196 +410,18 @@ export const Sketch = (props) => {
     checkMousePressed(p5, obj);
     checkMousePressed(p5, eye);
 
-    if (settings.currentMode === MODE.GUESS && isAiming) {
-      isAiming = false;
+    if (settings.currentMode === MODE.GUESS && gameState.isAiming) {
+      gameState.isAiming = false;
 
-      isFiring = true;
+      gameState.isFiring = true;
+
+      const lastLine = ray.lines[ray.currentIdx];
+      lastLine.end.x = lastLine.start.x;
+      lastLine.end.y = lastLine.start.y;
     }
   };
-
-  const changeMirrors = (delta) => {
-    setSettings({
-      ...settings,
-      numMirrors: clamp(settings.numMirrors + delta, 1, mirrors.length),
-    });
-  };
-
-  const startGame = () => {
-    eye.x = Math.random() * (bounds.max.x - bounds.min.x) + bounds.min.x;
-    eye.y = Math.random() * (bounds.max.y - bounds.min.y) + bounds.min.y;
-    obj.x = Math.random() * (bounds.max.x - bounds.min.x) + bounds.min.x;
-    obj.y = Math.random() * (bounds.max.y - bounds.min.y) + bounds.min.y;
-
-    eye.x = clamp(
-      eye.x,
-      bounds.min.x + SETTINGS.BOUNDS_PADDING,
-      bounds.max.x - SETTINGS.BOUNDS_PADDING
-    );
-
-    obj.x = clamp(
-      obj.x,
-      bounds.min.x + SETTINGS.BOUNDS_PADDING,
-      bounds.max.x - SETTINGS.BOUNDS_PADDING
-    );
-
-    ray.currentIdx = 0;
-    ray.lastMirrorIdx = -1;
-    ray.lines.forEach((l) => {
-      l.start.x = null;
-      l.start.y = null;
-      l.end.x = null;
-      l.end.y = null;
-    });
-    // ray.lines
-
-    currentRayTarget = rays[Math.floor(Math.random() * rays.length)];
-
-    isAiming = true;
-  };
-
-  const toggleVirtualRooms = () => {
-    STATE.showVirtualRooms = !STATE.showVirtualRooms;
-  };
-
-  const toggleMode = (newMode) => {
-    let m = newMode;
-    if (newMode === undefined) {
-      m = settings.currentMode === MODE.GUESS ? MODE.SANDBOX : MODE.GUESS;
-    }
-
-    setSettings({
-      ...settings,
-      currentMode: m,
-    });
-  };
-
-  useEffect(() => {
-    gsap.to(rays, {
-      progress: function (i) {
-        return settings.highlightedRays[i];
-      },
-    });
-  }, [settings.highlightedRays]);
 
   if (!mounted) return null;
-
-  let inner;
-  if (settings.currentMode === MODE.GUESS) {
-    inner = (
-      <div className="button" onClick={startGame}>
-        Start
-      </div>
-    );
-  } else {
-    inner = (
-      <>
-        <div className={"flex justify-between items-center"}>
-          <div>Mirrors</div>
-          <div className="flex flex-row gap-x-2">
-            <div className="button" onClick={() => changeMirrors(-1)}>
-              -
-            </div>
-            <div className="button" onClick={() => changeMirrors(1)}>
-              +
-            </div>
-          </div>
-        </div>
-
-        <div className="button" onClick={toggleVirtualRooms}>
-          Toggle Virtual Rooms
-        </div>
-
-        <div>Show Rays</div>
-        <div className="flex flex-row gap-x-1">
-          <div
-            className="button w-full"
-            onClick={() => {
-              const newArr = settings.highlightedRays.slice().fill(false);
-              setSettings({
-                ...settings,
-                highlightedRays: newArr,
-              });
-            }}
-          >
-            None
-          </div>
-          {settings.highlightedRays.map((isHighlighted, i) => {
-            return (
-              <div
-                className={cn("button", isHighlighted && "active")}
-                onClick={() => {
-                  const newArr = settings.highlightedRays.slice();
-                  newArr[i] = !newArr[i];
-
-                  setSettings({
-                    ...settings,
-                    highlightedRays: newArr,
-                  });
-                }}
-              >
-                {i + 1}
-              </div>
-            );
-          })}
-          <div
-            className="button w-full"
-            onClick={() => {
-              const newArr = settings.highlightedRays.slice().fill(true);
-              setSettings({
-                ...settings,
-                highlightedRays: newArr,
-              });
-            }}
-          >
-            All
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  const ui = (
-    <div className="fixed top-[1vw] right-[1vw] w-[400px] flex-col flex gap-y-4">
-      <div className="border">
-        <div className="flex flex-row">
-          <div
-            className={cn(
-              "tab",
-              settings.currentMode === MODE.SANDBOX && "active"
-            )}
-            onClick={() => toggleMode(MODE.SANDBOX)}
-          >
-            Sandbox
-          </div>
-          <div
-            className={cn(
-              "tab",
-              settings.currentMode === MODE.GUESS && "active"
-            )}
-            onClick={() => toggleMode(MODE.GUESS)}
-          >
-            Game
-          </div>
-        </div>
-        <div className="p-4 bg-gray-100 flex-col flex gap-y-4">{inner}</div>
-      </div>
-      <div className="border p-4 flex flex-col gap-y-2">
-        <div>Legend</div>
-        <div className="flex flex-row gap-x-2 items-center">
-          <div className="w-[25px] h-[25px] bg-black border"></div>
-          <div>Object</div>
-        </div>
-        <div className="flex flex-row gap-x-2 items-center">
-          <div className="w-[25px] h-[25px] bg-white border"></div>
-          <div>Eye</div>
-        </div>
-        <div className="flex flex-row gap-x-2 items-center">
-          <div className="w-[25px] h-[25px] bg-[lightblue] border"></div>
-          <div>Mirror</div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div>
@@ -716,7 +433,7 @@ export const Sketch = (props) => {
         mousePressed={mousePressed}
         className={"rounded-xl overflow-hidden"}
       />
-      {ui}
+      <UI settings={settings} setSettings={setSettings} />
     </div>
   );
 };

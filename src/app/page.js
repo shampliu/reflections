@@ -7,11 +7,14 @@ export default function Home() {
       <div className="z-10 max-w-2xl w-full items-center justify-between font-mono text-sm ">
         <h1 className="text-xl font-bold">Reflections</h1>
         <div>
-          - start in sandbox mode, drag the eye/object and toggle the
-          mirrors/rays
+          - start by exploring in sandbox mode (drag the object/eye, change
+          number of mirrors, toggle rays, toggle virtual rooms)
         </div>
-        <div>- add in mirrors</div>
-        <div>- go into game mode last</div>
+
+        <div>
+          - try game mode next, press "Start" to begin and try to guess the ray
+          path used to create the highlighted virtual room
+        </div>
         <div className="mb-8">
           - note: maximum number of reflections supported currently is 2
         </div>
