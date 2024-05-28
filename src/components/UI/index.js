@@ -218,7 +218,7 @@ export const UI = ({ settings, setSettings }) => {
         </div>
         <div className="p-4 bg-gray-100 flex-col flex gap-y-4">{inner}</div>
       </div>
-      <div className="border p-4 flex flex-col gap-y-2">
+      <div className="border p-4 flex flex-col gap-y-2 bg-white">
         <div>Legend</div>
         <div className="flex flex-row gap-x-2 items-center">
           <div className="w-[25px] h-[25px] bg-black border"></div>
