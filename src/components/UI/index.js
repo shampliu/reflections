@@ -109,7 +109,7 @@ export const UI = ({ settings, setSettings }) => {
 
   useEffect(() => {
     gsap.to(rays, {
-      virtualRoomOpacity: settings.showAllVirtualRooms,
+      virtualRoomOpacity: settings.showAllVirtualRooms * 0.25,
     });
   }, [settings.showAllVirtualRooms]);
 
