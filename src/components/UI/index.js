@@ -88,6 +88,8 @@ export const UI = ({ settings, setSettings }) => {
 
     setSettings({
       ...settings,
+      showAllVirtualRooms: false,
+      highlightedRays: new Array(rays.length).fill(false),
       currentMode: m,
     });
   };

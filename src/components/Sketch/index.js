@@ -335,17 +335,19 @@ export const Sketch = (props) => {
       );
       p5.pop();
 
-      const currentRayTarget = gameState.currentTargetIdx
-        ? rays[gameState.currentTargetIdx]
-        : null;
+      const currentRayTarget =
+        gameState.currentTargetIdx !== null
+          ? rays[gameState.currentTargetIdx]
+          : null;
       if (gameState.isFiring) {
         if (length >= SETTINGS.MAX_RAY_LENGTH) {
+          gameState.isFiring = false;
           // stop
         } else if (
           currentRayTarget &&
           currentRayTarget.currentIdx === ray.currentIdx &&
           currentRayTarget.lastMirrorIdx === ray.lastMirrorIdx &&
-          checkHit(eye, lastLine.end, 10, 10)
+          checkHit(eye, lastLine.end, 12, 12)
         ) {
           alert("Correct!");
           gameState.isAiming = false;
