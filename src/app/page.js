@@ -5,9 +5,15 @@ export default function Home() {
   return (
     <main className="flex min-h-screen justify-center p-24">
       <div className="z-10 max-w-2xl w-full items-center justify-between font-mono text-sm ">
-        Brilliant: Reflections
+        <h1 className="text-xl font-bold">Reflections</h1>
         <div>
-          Note: the maximum number of reflections we support currently is 2
+          - start in sandbox mode, drag the eye/object and toggle the
+          mirrors/rays
+        </div>
+        <div>- add in mirrors</div>
+        <div>- go into game mode last</div>
+        <div className="mb-8">
+          - note: maximum number of reflections supported currently is 2
         </div>
         <Sketch />
       </div>

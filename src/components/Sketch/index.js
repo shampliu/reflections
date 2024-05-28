@@ -28,22 +28,6 @@ const bounds = {
   },
 };
 
-// TODO: this is hardcoded
-const sceneConfig = [
-  {
-    color: "blue",
-  },
-  {
-    color: "orange",
-  },
-  {
-    color: "red",
-  },
-  {
-    color: "purple",
-  },
-];
-
 const obj = {
   x: null,
   y: null,
@@ -62,16 +46,16 @@ const mirrors = [
   {
     x: null,
     y: null,
-    w: 5,
-    h: 100,
+    w: 8,
+    h: 159,
     type: MIRROR_TYPE.VERTICAL,
     //
   },
   {
     x: null,
     y: null,
-    w: 5,
-    h: 100,
+    w: 8,
+    h: 150,
     type: MIRROR_TYPE.VERTICAL,
   },
   // {
@@ -83,14 +67,9 @@ const mirrors = [
   // },
 ];
 
-let rayTarget = {
-  isActive: false,
-  x: null,
-  y: null,
-  reflections: null,
-};
+let currentRayTarget;
 
-let ray = {
+const ray = {
   direction: null,
   currentIdx: 0,
   lines: [
@@ -110,6 +89,38 @@ let ray = {
   lastMirrorIdx: -1,
 };
 
+const rays = [
+  {
+    progress: 0,
+    color: "blue",
+
+    // TODO: these values are hardcoded, compare these to the value of ray to see if the user traced the same path
+    lastMirrorIdx: 0,
+    currentIdx: 1,
+  },
+  {
+    progress: 0,
+    color: "orange",
+
+    lastMirrorIdx: 1,
+    currentIdx: 1,
+  },
+  {
+    progress: 0,
+    color: "red",
+
+    lastMirrorIdx: 1,
+    currentIdx: 2,
+  },
+  {
+    progress: 0,
+    color: "purple",
+
+    lastMirrorIdx: 0,
+    currentIdx: 2,
+  },
+];
+
 const SETTINGS = {
   FIRING_SPEED: 2,
   MAX_RAY_LENGTH: 400,
@@ -126,11 +137,7 @@ const MODE = {
 };
 
 const STATE = {
-  numMirrors: 1,
   showVirtualRooms: false,
-  showAllRays: false,
-  currentMode: MODE.SANDBOX,
-  //   isAiming: false
 };
 
 let draggingTarget;
@@ -155,13 +162,13 @@ function checkMousePressed(p5, obj) {
   }
 }
 
-function drawVirtualRoom(p5, point, ray, mirrors) {
+function drawVirtualRoom(p5, point, ray, mirrors, config) {
   const m1 = mirrors[0];
   const numReflections = mirrors.length;
 
   p5.push();
 
-  p5.drawingContext.globalAlpha = 0.5;
+  p5.drawingContext.globalAlpha = 0.25;
   p5.fill(SETTINGS.OBJECT_COLOR);
 
   p5.push();
@@ -170,6 +177,8 @@ function drawVirtualRoom(p5, point, ray, mirrors) {
 
   const newX = point.x + ray.x,
     newY = point.y + ray.y;
+
+  p5.drawingContext.globalAlpha = config.progress * 0.5;
   p5.line(point.x, point.y, newX, newY);
 
   p5.pop();
@@ -217,19 +226,20 @@ function drawVirtualRoom(p5, point, ray, mirrors) {
   p5.pop();
 }
 
-function drawSingleReflection(p5, obj, eye, m) {
+function drawSingleReflection(p5, obj, eye, m, config) {
   p5.push();
   p5.strokeWeight(SETTINGS.LINE_WEIGHT);
-  p5.stroke("red");
-  p5.fill("red");
+
+  p5.stroke(config.color);
+  p5.fill(config.color);
+  p5.drawingContext.globalAlpha = config.progress;
+
   const p1 = calculateSingleReflection(obj, eye, m);
 
-  if (STATE.showAllRays) {
-    p5.line(obj.x, obj.y, p1.x, p1.y);
-    p5.line(p1.x, p1.y, eye.x, eye.y);
-    // draw directional arrow
-    drawDirectionalArrow(p5, eye.x, eye.y, eye.x - p1.x, eye.y - p1.y);
-  }
+  p5.line(obj.x, obj.y, p1.x, p1.y);
+  p5.line(p1.x, p1.y, eye.x, eye.y);
+  // draw directional arrow
+  drawDirectionalArrow(p5, eye.x, eye.y, eye.x - p1.x, eye.y - p1.y);
 
   p5.pop();
 
@@ -242,7 +252,7 @@ function drawSingleReflection(p5, obj, eye, m) {
       .normalize()
       .mult(d);
 
-    drawVirtualRoom(p5, p1, v, [m]);
+    drawVirtualRoom(p5, p1, v, [m], config);
   }
 }
 
@@ -272,21 +282,21 @@ function drawEye(p5) {
   p5.pop();
 }
 
-function drawDoubleReflection(p5, obj, eye, m1, m2) {
+function drawDoubleReflection(p5, obj, eye, m1, m2, config) {
   const { p1, p2 } = calculateDoubleReflection(obj, eye, m1, m2);
 
   p5.push();
   p5.strokeWeight(SETTINGS.LINE_WEIGHT);
-  p5.fill("yellow");
-  p5.stroke("yellow");
+  p5.fill(config.color);
+  p5.stroke(config.color);
+  p5.drawingContext.globalAlpha = config.progress;
 
-  if (STATE.showAllRays) {
-    p5.line(p1.x, p1.y, p2.x, p2.y);
-    p5.line(p1.x, p1.y, eye.x, eye.y);
-    p5.line(obj.x, obj.y, p2.x, p2.y);
+  p5.line(p1.x, p1.y, p2.x, p2.y);
+  p5.line(p1.x, p1.y, eye.x, eye.y);
+  p5.line(obj.x, obj.y, p2.x, p2.y);
 
-    drawDirectionalArrow(p5, eye.x, eye.y, eye.x - p1.x, eye.y - p1.y);
-  }
+  drawDirectionalArrow(p5, eye.x, eye.y, eye.x - p1.x, eye.y - p1.y);
+
   p5.pop();
 
   // draw virtual room
@@ -297,12 +307,17 @@ function drawDoubleReflection(p5, obj, eye, m1, m2) {
       .createVector(p1.x - eye.x, p1.y - eye.y)
       .normalize()
       .mult(d);
-    drawVirtualRoom(p5, p1, v, [m1, m2]);
+    drawVirtualRoom(p5, p1, v, [m1, m2], config);
   }
 }
 
 export const Sketch = (props) => {
   const [mounted, setMounted] = useState(false);
+  const [settings, setSettings] = useState({
+    currentMode: MODE.SANDBOX,
+    numMirrors: 1,
+    highlightedRays: new Array(rays.length).fill(false),
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -366,7 +381,9 @@ export const Sketch = (props) => {
     drawEye(p5);
     p5.pop();
 
-    for (let i = 0; i < STATE.numMirrors; i++) {
+    const numMirrors =
+      settings.currentMode === MODE.GUESS ? 2 : settings.numMirrors;
+    for (let i = 0; i < numMirrors; i++) {
       const m = mirrors[i];
       p5.push();
       // p5.noStroke();
@@ -384,12 +401,15 @@ export const Sketch = (props) => {
     }
 
     // TODO: config is hardcoded
-    drawSingleReflection(p5, obj, eye, mirrors[0]);
-    drawSingleReflection(p5, obj, eye, mirrors[1]);
-    drawDoubleReflection(p5, obj, eye, mirrors[1], mirrors[0]);
-    drawDoubleReflection(p5, obj, eye, mirrors[0], mirrors[1]);
+    drawSingleReflection(p5, obj, eye, mirrors[0], rays[0]);
 
-    if (STATE.currentMode === MODE.GUESS) {
+    if (numMirrors > 1) {
+      drawSingleReflection(p5, obj, eye, mirrors[1], rays[1]);
+      drawDoubleReflection(p5, obj, eye, mirrors[1], mirrors[0], rays[2]);
+      drawDoubleReflection(p5, obj, eye, mirrors[0], mirrors[1], rays[3]);
+    }
+
+    if (settings.currentMode === MODE.GUESS) {
       if (isAiming) {
         ray.direction.set(p5.mouseX - obj.x, p5.mouseY - obj.y).normalize();
 
@@ -405,8 +425,8 @@ export const Sketch = (props) => {
       // sum up length
       let length = 0;
       p5.push();
-      p5.fill("yellow");
-      p5.stroke("yellow");
+      p5.fill("green");
+      p5.stroke("green");
       p5.strokeWeight(SETTINGS.LINE_WEIGHT);
       for (let i = 0; i <= ray.currentIdx; i++) {
         const line = ray.lines[i];
@@ -430,9 +450,12 @@ export const Sketch = (props) => {
         if (length >= SETTINGS.MAX_RAY_LENGTH) {
           // stop
         } else if (
-          rayTarget.isActive &&
-          checkHit(rayTarget, lastLine.end, 25, 25)
+          currentRayTarget &&
+          currentRayTarget.currentIdx === ray.currentIdx &&
+          currentRayTarget.lastMirrorIdx === ray.lastMirrorIdx &&
+          checkHit(eye, lastLine.end, 25, 25)
         ) {
+          alert("nice");
           // success
         } else {
           lastLine.end.set(
@@ -450,6 +473,10 @@ export const Sketch = (props) => {
 
           if (m.type === MIRROR_TYPE.VERTICAL) {
             if (checkHit(lastLine.end, m, 1, m.h / 2)) {
+              if (ray.lines.length - 1 === ray.currentIdx) {
+                return;
+              }
+
               // bounce it
               ray.direction.x *= -1;
               ray.lastMirrorIdx = i;
@@ -488,22 +515,38 @@ export const Sketch = (props) => {
     checkMousePressed(p5, obj);
     checkMousePressed(p5, eye);
 
-    if (STATE.currentMode === MODE.GUESS && isAiming) {
+    if (settings.currentMode === MODE.GUESS && isAiming) {
       isAiming = false;
 
       isFiring = true;
     }
   };
 
-  const addMirror = () => {
-    STATE.numMirrors = Math.min(mirrors.length, STATE.numMirrors + 1);
+  const changeMirrors = (delta) => {
+    setSettings({
+      ...settings,
+      numMirrors: clamp(settings.numMirrors + delta, 1, mirrors.length),
+    });
   };
 
-  const removeMirror = () => {
-    STATE.numMirrors = Math.max(1, STATE.numMirrors - 1);
-  };
+  const startGame = () => {
+    eye.x = Math.random() * (bounds.max.x - bounds.min.x) + bounds.min.x;
+    eye.y = Math.random() * (bounds.max.y - bounds.min.y) + bounds.min.y;
+    obj.x = Math.random() * (bounds.max.x - bounds.min.x) + bounds.min.x;
+    obj.y = Math.random() * (bounds.max.y - bounds.min.y) + bounds.min.y;
 
-  const startAiming = () => {
+    eye.x = clamp(
+      eye.x,
+      bounds.min.x + SETTINGS.BOUNDS_PADDING,
+      bounds.max.x - SETTINGS.BOUNDS_PADDING
+    );
+
+    obj.x = clamp(
+      obj.x,
+      bounds.min.x + SETTINGS.BOUNDS_PADDING,
+      bounds.max.x - SETTINGS.BOUNDS_PADDING
+    );
+
     ray.currentIdx = 0;
     ray.lastMirrorIdx = -1;
     ray.lines.forEach((l) => {
@@ -513,6 +556,9 @@ export const Sketch = (props) => {
       l.end.y = null;
     });
     // ray.lines
+
+    currentRayTarget = rays[Math.floor(Math.random() * rays.length)];
+
     isAiming = true;
   };
 
@@ -520,51 +566,141 @@ export const Sketch = (props) => {
     STATE.showVirtualRooms = !STATE.showVirtualRooms;
   };
 
-  const toggleMode = () => {
-    STATE.currentMode =
-      STATE.currentMode === MODE.GUESS ? MODE.SANDBOX : MODE.GUESS;
-    // STATE.mode
+  const toggleMode = (newMode) => {
+    let m = newMode;
+    if (newMode === undefined) {
+      m = settings.currentMode === MODE.GUESS ? MODE.SANDBOX : MODE.GUESS;
+    }
+
+    setSettings({
+      ...settings,
+      currentMode: m,
+    });
   };
+
+  useEffect(() => {
+    gsap.to(rays, {
+      progress: function (i) {
+        return settings.highlightedRays[i];
+      },
+    });
+  }, [settings.highlightedRays]);
 
   if (!mounted) return null;
 
-  const buttonClassName = "cursor-pointer hover:bg-black hover:text-white";
-
-  const ui = (
-    <div className="fixed top-[1vw] right-[1vw] w-[250px] border">
-      <div className="flex flex-row border-b">
-        <div className="tab">Sandbox</div>
-        <div className="tab">Game</div>
+  let inner;
+  if (settings.currentMode === MODE.GUESS) {
+    inner = (
+      <div className="button" onClick={startGame}>
+        Start
       </div>
-      <div className="p-4">
-        <div className={"flex justify-between items-center row"}>
+    );
+  } else {
+    inner = (
+      <>
+        <div className={"flex justify-between items-center"}>
           <div>Mirrors</div>
-          <div className="flex flex-row">
-            <div className="button" onClick={removeMirror}>
+          <div className="flex flex-row gap-x-2">
+            <div className="button" onClick={() => changeMirrors(-1)}>
               -
             </div>
-            <div className="button" onClick={addMirror}>
+            <div className="button" onClick={() => changeMirrors(1)}>
               +
             </div>
           </div>
         </div>
 
-        <div className="button" onClick={startAiming}>
-          aim
-        </div>
         <div className="button" onClick={toggleVirtualRooms}>
-          toggle virtual rooms
+          Toggle Virtual Rooms
         </div>
-        <div className="button" onClick={toggleMode}>
-          toggle mode
+
+        <div>Show Rays</div>
+        <div className="flex flex-row gap-x-1">
+          <div
+            className="button w-full"
+            onClick={() => {
+              const newArr = settings.highlightedRays.slice().fill(false);
+              setSettings({
+                ...settings,
+                highlightedRays: newArr,
+              });
+            }}
+          >
+            None
+          </div>
+          {settings.highlightedRays.map((isHighlighted, i) => {
+            return (
+              <div
+                className={cn("button", isHighlighted && "active")}
+                onClick={() => {
+                  const newArr = settings.highlightedRays.slice();
+                  newArr[i] = !newArr[i];
+
+                  setSettings({
+                    ...settings,
+                    highlightedRays: newArr,
+                  });
+                }}
+              >
+                {i + 1}
+              </div>
+            );
+          })}
+          <div
+            className="button w-full"
+            onClick={() => {
+              const newArr = settings.highlightedRays.slice().fill(true);
+              setSettings({
+                ...settings,
+                highlightedRays: newArr,
+              });
+            }}
+          >
+            All
+          </div>
         </div>
-        <div
-          className="button"
-          onClick={() => {
-            STATE.showAllRays = !STATE.showAllRays;
-          }}
-        >
-          toggle rays
+      </>
+    );
+  }
+
+  const ui = (
+    <div className="fixed top-[1vw] right-[1vw] w-[400px] flex-col flex gap-y-4">
+      <div className="border">
+        <div className="flex flex-row">
+          <div
+            className={cn(
+              "tab",
+              settings.currentMode === MODE.SANDBOX && "active"
+            )}
+            onClick={() => toggleMode(MODE.SANDBOX)}
+          >
+            Sandbox
+          </div>
+          <div
+            className={cn(
+              "tab",
+              settings.currentMode === MODE.GUESS && "active"
+            )}
+            onClick={() => toggleMode(MODE.GUESS)}
+          >
+            Game
+          </div>
+        </div>
+        <div className="p-4 bg-gray-100 flex-col flex gap-y-4">{inner}</div>
+      </div>
+      <div className="border p-4 flex flex-col gap-y-2">
+        <div>Legend</div>
+        <div className="flex flex-row gap-x-2 items-center">
+          <div className="w-[25px] h-[25px] bg-black border"></div>
+          <div>Object</div>
+        </div>
+        <div className="flex flex-row gap-x-2 items-center">
+          <div className="w-[25px] h-[25px] bg-white border"></div>
+          <div>Eye</div>
+        </div>
+        <div className="flex flex-row gap-x-2 items-center">
+          <div className="w-[25px] h-[25px] bg-[lightblue] border"></div>
+          <div>Mirror</div>
         </div>
       </div>
     </div>
